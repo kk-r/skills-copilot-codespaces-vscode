@@ -1,68 +1,60 @@
 //create web server
 const express = require('express');
 const app = express();
-const comments = require('./comments.js');
-const bodyParser = require('body-parser');
+const port = 3000;
 
-app.use(bodyParser.json());
+//set up public folder
+app.use(express.static('public'));
+
+//set up view engine
+app.set('view engine', 'ejs');
+
+//use body parser
+const bodyParser = require('body-parser');
 app.use(bodyParser.urlencoded({ extended: true }));
 
-//create a route
+//set up mongoose
+const mongoose = require('mongoose');
+mongoose.connect('mongodb://localhost/comments', { useNewUrlParser: true, useUnifiedTopology: true });
+
+//set up schema
+const commentSchema = new mongoose.Schema({
+    name: String,
+    comment: String
+});
+
+//set up model
+const Comment = mongoose.model('Comment', commentSchema);
+
+//set up routes
 app.get('/', (req, res) => {
-  res.send('Welcome to my comments app');
+    res.render('home');
 });
 
-//create a route to get all comments
 app.get('/comments', (req, res) => {
-  res.json(comments);
+    Comment.find({}, (err, comments) => {
+        if (err) {
+            console.log(err);
+        } else {
+            res.render('comments', { comments: comments });
+        }
+    });
 });
 
-//create a route to get a comment by id
-app.get('/comments/:id', (req, res) => {
-  if (!comments.find(comment => comment.id === parseInt(req.params.id))) {
-    res.status(404).send('The comment with the given ID was not found');
-  } else {
-    res.send(
-      comments.find(comment => comment.id === parseInt(req.params.id))
-    );
-  }
-});
-
-//create a route to post a new comment
 app.post('/comments', (req, res) => {
-  if (!req.body.name || req.body.name.length < 3) {
-    res.status(400).send('Name is required and should be minimum 3 characters');
-    return;
-  }
-  const comment = {
-    id: comments.length + 1,
-    name: req.body.name,
-  };
-  comments.push(comment);
-  res.send(comment);
+    const name = req.body.name;
+    const comment = req.body.comment;
+    const newComment = { name: name, comment: comment };
+    Comment.create(newComment, (err, newComment) => {
+        if (err) {
+            console.log(err);
+        } else {
+            res.redirect('/comments');
+        }
+    });
 });
 
-//create a route to update a comment
-app.put('/comments/:id', (req, res) => {
-  if (!comments.find(comment => comment.id === parseInt(req.params.id))) {
-    res.status(404).send('The comment with the given ID was not found');
-  } else if (!req.body.name || req.body.name.length < 3) {
-    res.status(400).send('Name is required and should be minimum 3 characters');
-  } else {
-    const comment = comments.find(
-      comment => comment.id === parseInt(req.params.id)
-    );
-    comment.name = req.body.name;
-    res.send(comment);
-  }
+//set up listener
+app.listen(port, () => {
+    console.log(`Example app listening at http://localhost:${port}`)
 });
-
-//create a route to delete a comment
-app.delete('/comments/:id', (req, res) => {
-  if (!comments.find(comment => comment.id === parseInt(req.params.id))) {
-    res.status(404).send('The comment with the given ID was not found');
-  } else {
-    const comment = comments.find(
-      comment => comment.id === parseInt(req.params.id)
-    );
-    const index = comments.indexOf(comment
